@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libri in Cloud</title>
+<style>
+body { font-family: Arial; padding: 20px; text-align: center; }
+input, button { width: 90%; padding: 10px; margin:5px 0; font-size: 18px; border-radius: 8px; border:1px solid #888; }
+#result { font-size: 18px; padding: 15px; text-align: left; white-space: pre-line; max-width: 500px; margin:auto;}
+</style>
+</head>
+<body>
+
+<h2>Libri Condivisi</h2>
+
+<h3>Cerca libro</h3>
+<input id="searchTitle" placeholder="Titolo">
+<button onclick="checkBook()">Cerca</button>
+<div id="result"></div>
+
+<hr>
+
+<h3>Aggiungi libro</h3>
+<input id="newTitle" placeholder="Titolo">
+<input id="newAuthor" placeholder="Autore">
+<input id="newLibrary" placeholder="Libreria">
+<button onclick="addBook()">Aggiungi</button>
+
+<script>
+const endpoint = "https://script.google.com/macros/s/AKfycbxMpNVkxei4tszJ93KaXiEbMyRbA9tsbzC9CCuoR04_4qOm_V-F1XR21sWw56nt4cqLPQ/exec";
+
+// Lista libri dal cloud
+let books = [];
+
+// Carica lista dal cloud
+async function loadBooks(){
+  try{
+    const res = await fetch(endpoint);
+    books = await res.json();
+  } catch(e){
+    document.getElementById("result").textContent = "Errore caricamento lista";
+  }
+}
+
+// Controlla libro
+function checkBook(){
+  const t = document.getElementById("searchTitle").value.toLowerCase().trim();
+  const resultBox = document.getElementById("result");
+  if(!t){ resultBox.textContent=""; return; }
+  const found = books.filter(b => b.title.toLowerCase().includes(t));
+  if(found.length === 0){
+    resultBox.textContent = "Nessun libro trovato ❌";
+  } else {
+    let out = "Libri trovati ✅\n\n";
+    found.forEach(b => out += `Titolo: ${b.title}\nAutore: ${b.author}\nLibreria: ${b.library}\n\n`);
+    resultBox.textContent = out;
+  }
+}
+
+// Aggiungi libro
+async function addBook(){
+  const t = document.getElementById("newTitle").value.trim();
+  const a = document.getElementById("newAuthor").value.trim();
+  const l = document.getElementById("newLibrary").value.trim();
+  if(!t||!a||!l){ alert("Compila tutti i campi"); return; }
+
+  await fetch(endpoint, {
+    method: "POST",
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({title:t, author:a, library:l})
+  });
+  document.getElementById("newTitle").value="";
+  document.getElementById("newAuthor").value="";
+  document.getElementById("newLibrary").value="";
+  await loadBooks();
+  alert("Libro aggiunto e lista aggiornata!");
+}
+
+// Aggiorna lista appena apre pagina
+loadBooks();
+</script>
+</body>
+</html>
