@@ -1,111 +1,106 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Libreria Cloud</title>
-<style>
-body { font-family: Arial; padding: 20px; text-align:center; }
-input, button { width:90%; padding:10px; margin:5px; font-size:18px; border-radius:8px; border:1px solid #888; }
-.book { padding:10px; border-bottom: 1px solid #aaa; text-align:left; max-width:500px; margin:auto; }
-</style>
+    <meta charset="UTF-8">
+    <title>Libri</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        input { margin: 5px 0; padding: 7px; width: 100%; }
+        button { padding: 10px; margin: 5px 0; width: 100%; }
+        .book { padding: 10px; border-bottom: 1px solid #ccc; }
+        .delete-btn { background: red; color: white; padding: 5px; border: none; cursor: pointer; }
+    </style>
 </head>
 <body>
 
-<h2>Gestione Libri Cloud</h2>
+    <h2>Controlla libro</h2>
+    <input id="searchInput" placeholder="Titolo da cercare">
+    <button id="searchBtn">Cerca</button>
+    <div id="searchResult"></div>
 
-<h3>Cerca libro</h3>
-<input id="search" placeholder="Titolo">
-<button onclick="searchBook()">Cerca</button>
-<div id="results"></div>
+    <h2>Aggiungi libro</h2>
+    <input id="newTitle" placeholder="Titolo">
+    <input id="newAuthor" placeholder="Autore">
+    <input id="newStore" placeholder="Libreria">
+    <button id="addBtn">Aggiungi Libro</button>
+    <div id="addStatus"></div>
 
-<hr>
-
-<h3>Aggiungi libro</h3>
-<input id="t" placeholder="Titolo">
-<input id="a" placeholder="Autore">
-<input id="l" placeholder="Libreria">
-<button onclick="addBook()">Aggiungi</button>
-
-<hr>
-<h3>Elenco libri</h3>
-<div id="list"></div>
+    <h2>Lista libri</h2>
+    <button id="refreshBtn">Aggiorna lista</button>
+    <div id="bookList"></div>
 
 <script>
-const API = "/api";
+// URL API Vercel (serverless)
+const API_URL = "/api/books";
 
-async function loadList() {
-  const res = await fetch(API + "/list");
-  const data = await res.json();
-  renderList(data);
-  window.booksCache = data;
+// CERCA
+document.getElementById("searchBtn").onclick = async () => {
+    const query = document.getElementById("searchInput").value.trim();
+    if (!query) return;
+
+    const res = await fetch(API_URL + "?search=" + encodeURIComponent(query));
+    const data = await res.json();
+
+    const box = document.getElementById("searchResult");
+    if (data.length === 0) {
+        box.innerHTML = "<p style='color:red;'>NON ce l'hai</p>";
+    } else {
+        let html = "<p style='color:green;'>CE L'HAI:</p>";
+        data.forEach(b => {
+            html += `<div class="book"><b>${b.title}</b><br>${b.author}<br>${b.store}</div>`;
+        });
+        box.innerHTML = html;
+    }
+};
+
+// AGGIUNGI
+document.getElementById("addBtn").onclick = async () => {
+    const title = document.getElementById("newTitle").value.trim();
+    const author = document.getElementById("newAuthor").value.trim();
+    const store = document.getElementById("newStore").value.trim();
+
+    if (!title) return;
+
+    const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ title, author, store })
+    });
+
+    const out = await res.json();
+
+    document.getElementById("addStatus").innerHTML =
+        `<p style="color:blue;">Libro aggiunto!</p>`;
+};
+
+// LISTA LIBRI
+async function loadBooks() {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    let html = "";
+
+    data.forEach(b => {
+        html += `
+            <div class="book">
+                <b>${b.title}</b><br>
+                ${b.author}<br>
+                ${b.store}<br>
+                <button class="delete-btn" onclick="deleteBook('${b.id}')">Elimina</button>
+            </div>
+        `;
+    });
+
+    document.getElementById("bookList").innerHTML = html;
 }
 
-function renderList(books) {
-  const div = document.getElementById("list");
-  div.innerHTML = "";
-  books.forEach(b => {
-    div.innerHTML += `
-      <div class="book">
-        <b>${b.title}</b><br>
-        Autore: ${b.author}<br>
-        Libreria: ${b.library}<br>
-        Arrivato: ${b.arrived ? "✔️" : "❌"}
-      </div>
-    `;
-  });
+document.getElementById("refreshBtn").onclick = loadBooks;
+
+async function deleteBook(id) {
+    await fetch(API_URL + "?id=" + id, { method: "DELETE" });
+    loadBooks();
 }
 
-function searchBook() {
-  const txt = document.getElementById("search").value.toLowerCase().trim();
-  const out = document.getElementById("results");
-
-  if (!txt) {
-    out.innerHTML = "";
-    return;
-  }
-
-  const found = window.booksCache.filter(b =>
-    b.title.toLowerCase().includes(txt)
-  );
-
-  if (found.length === 0) {
-    out.innerHTML = "<p>Nessun libro trovato ❌</p>";
-    return;
-  }
-
-  out.innerHTML = found.map(b => `
-    <div class="book">
-      <b>${b.title}</b><br>
-      Autore: ${b.author}<br>
-      Libreria: ${b.library}<br>
-      Arrivato: ${b.arrived ? "✔️" : "❌"}
-    </div>
-  `).join("");
-}
-
-async function addBook() {
-  const title = document.getElementById("t").value.trim();
-  const author = document.getElementById("a").value.trim();
-  const library = document.getElementById("l").value.trim();
-
-  if (!title || !author || !library) {
-    alert("Compila tutto, per l'amor del cielo");
-    return;
-  }
-
-  await fetch(API + "/add", {
-    method: "POST",
-    body: JSON.stringify({ title, author, library })
-  });
-
-  document.getElementById("t").value = "";
-  document.getElementById("a").value = "";
-  document.getElementById("l").value = "";
-
-  loadList();
-}
-loadList();
+loadBooks();
 </script>
 
 </body>
