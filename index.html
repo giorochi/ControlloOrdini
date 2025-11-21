@@ -19,7 +19,7 @@ button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 
 <h3>Cerca libro</h3>
 <input id="searchTitle" placeholder="Titolo">
-<button onclick="checkBook()">Cerca</button>
+<button id="searchBtn">Cerca</button>
 <div id="result"></div>
 
 <hr>
@@ -28,7 +28,7 @@ button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 <input id="newTitle" placeholder="Titolo">
 <input id="newAuthor" placeholder="Autore">
 <input id="newPublisher" placeholder="Casa editrice (opzionale)">
-<button onclick="addBook()">Aggiungi libro</button>
+<button id="addBtn">Aggiungi libro</button>
 
 <hr>
 
@@ -52,55 +52,22 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-
 const booksRef = ref(db, 'books');
 
-// Funzione per aggiungere libro
-function addBook(){
+// FUNZIONI
+window.addBook = () => {
   const title = document.getElementById("newTitle").value.trim();
   const author = document.getElementById("newAuthor").value.trim();
   const publisher = document.getElementById("newPublisher").value.trim();
-
   if(!title || !author){ alert("Titolo e Autore obbligatori!"); return; }
-
   push(booksRef, { title, author, publisher, arrived:false });
   document.getElementById("newTitle").value="";
   document.getElementById("newAuthor").value="";
   document.getElementById("newPublisher").value="";
   alert("Libro aggiunto!");
-}
-
-// Funzione per aggiornare lista libri
-function renderList(books){
-  const listDiv = document.getElementById("bookList");
-  listDiv.innerHTML = "";
-  for(let key in books){
-    const b = books[key];
-    const div = document.createElement("div");
-    div.className = "bookItem";
-    div.innerHTML = `
-      ${b.title} — ${b.author} ${b.publisher ? "- " + b.publisher : ""}
-      <input type="checkbox" ${b.arrived ? "checked" : ""} onchange="updateArrived('${key}', this.checked)"> Arrivato
-      <button class="small" onclick="deleteBook('${key}')">Elimina</button>
-    `;
-    listDiv.appendChild(div);
-  }
-}
-
-// Funzione per aggiornare checkbox arrivato
-window.updateArrived = (key, val) => {
-  update(ref(db, 'books/' + key), { arrived: val });
 };
 
-// Funzione per eliminare libro
-window.deleteBook = (key) => {
-  if(confirm("Vuoi eliminare questo libro?")){
-    remove(ref(db, 'books/' + key));
-  }
-};
-
-// Funzione ricerca libri
-function checkBook(){
+window.checkBook = () => {
   const search = document.getElementById("searchTitle").value.trim().toLowerCase();
   const resultDiv = document.getElementById("result");
   if(!search){ resultDiv.textContent=""; return; }
@@ -117,13 +84,43 @@ function checkBook(){
       resultDiv.textContent = out;
     }
   }, {onlyOnce:true});
+};
+
+window.updateArrived = (key, val) => {
+  update(ref(db, 'books/' + key), { arrived: val });
+};
+
+window.deleteBook = (key) => {
+  if(confirm("Vuoi eliminare questo libro?")){
+    remove(ref(db, 'books/' + key));
+  }
+};
+
+// Render lista completa
+function renderList(books){
+  const listDiv = document.getElementById("bookList");
+  listDiv.innerHTML = "";
+  for(let key in books){
+    const b = books[key];
+    const div = document.createElement("div");
+    div.className = "bookItem";
+    div.innerHTML = `
+      ${b.title} — ${b.author} ${b.publisher ? "- " + b.publisher : ""}
+      <input type="checkbox" ${b.arrived ? "checked" : ""} onchange="updateArrived('${key}', this.checked)"> Arrivato
+      <button class="small" onclick="deleteBook('${key}')">Elimina</button>
+    `;
+    listDiv.appendChild(div);
+  }
 }
 
-// Aggiornamento in tempo reale della lista completa
+// Aggiornamento in tempo reale della lista
 onValue(booksRef, snapshot => {
   renderList(snapshot.val() || {});
 });
 
+// EventListener per pulsanti
+document.getElementById("addBtn").addEventListener("click", addBook);
+document.getElementById("searchBtn").addEventListener("click", checkBook);
 </script>
 
 </body>
