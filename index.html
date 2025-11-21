@@ -1,107 +1,193 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <title>Libri</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        input { margin: 5px 0; padding: 7px; width: 100%; }
-        button { padding: 10px; margin: 5px 0; width: 100%; }
-        .book { padding: 10px; border-bottom: 1px solid #ccc; }
-        .delete-btn { background: red; color: white; padding: 5px; border: none; cursor: pointer; }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Controllo Ordini Libri</title>
+<style>
+  body{font-family:Arial,system-ui;padding:18px;max-width:720px;margin:auto}
+  input,button{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #888;font-size:16px}
+  .row{display:flex;gap:8px}
+  .small{width:30%}
+  .book{border:1px solid #ddd;padding:10px;border-radius:8px;margin:8px 0}
+  .actions{display:flex;gap:8px;margin-top:8px}
+  .btn-danger{background:#c0392b;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer}
+  .badge{display:inline-block;padding:4px 8px;border-radius:6px;background:#eee;margin-left:6px}
+  #status{margin:6px 0;color:green}
+</style>
 </head>
 <body>
+<h2>Controllo Ordini — Cerca / Aggiungi / Elimina</h2>
 
-    <h2>Controlla libro</h2>
-    <input id="searchInput" placeholder="Titolo da cercare">
-    <button id="searchBtn">Cerca</button>
-    <div id="searchResult"></div>
+<!-- Ricerca -->
+<input id="searchInput" placeholder="Cerca titolo e premi Invio" />
+<div id="searchResults"></div>
 
-    <h2>Aggiungi libro</h2>
-    <input id="newTitle" placeholder="Titolo">
-    <input id="newAuthor" placeholder="Autore">
-    <input id="newStore" placeholder="Libreria">
-    <button id="addBtn">Aggiungi Libro</button>
-    <div id="addStatus"></div>
+<hr>
 
-    <h2>Lista libri</h2>
-    <button id="refreshBtn">Aggiorna lista</button>
-    <div id="bookList"></div>
+<!-- Aggiungi -->
+<input id="title" placeholder="Titolo" />
+<input id="author" placeholder="Autore" />
+<input id="store" placeholder="Libreria / Dove comprato" />
+<button id="addBtn">Aggiungi libro</button>
+<div id="status"></div>
 
-<script>
-// URL API Vercel (serverless)
-const API_URL = "/api/books";
+<hr>
+<h3>Elenco completo</h3>
+<div id="list"></div>
 
-// CERCA
-document.getElementById("searchBtn").onclick = async () => {
-    const query = document.getElementById("searchInput").value.trim();
-    if (!query) return;
+<script type="module">
 
-    const res = await fetch(API_URL + "?search=" + encodeURIComponent(query));
-    const data = await res.json();
+  /* ---------------------------------------------------
+     CONFIG FIREBASE (IL TUO)
+  --------------------------------------------------- */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBf-7Tg24C63gEVJEVkAyVqeci_WQ-BL9k",
+    authDomain: "controlloordini-165ec.firebaseapp.com",
+    projectId: "controlloordini-165ec",
+    storageBucket: "controlloordini-165ec.firebasestorage.app",
+    messagingSenderId: "825748031202",
+    appId: "1:825748031202:web:61cb4cca7511df87a280bb",
+    measurementId: "G-F5GR79DLMN"
+  };
 
-    const box = document.getElementById("searchResult");
-    if (data.length === 0) {
-        box.innerHTML = "<p style='color:red;'>NON ce l'hai</p>";
-    } else {
-        let html = "<p style='color:green;'>CE L'HAI:</p>";
-        data.forEach(b => {
-            html += `<div class="book"><b>${b.title}</b><br>${b.author}<br>${b.store}</div>`;
-        });
-        box.innerHTML = html;
+  /* ---------------------------------------------------
+     SDK FIREBASE IMPORT
+  --------------------------------------------------- */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, deleteDoc, doc,
+    onSnapshot, query, orderBy, getDocs
+  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+  // Init Firebase + Firestore
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const booksCol = collection(db, "books");
+
+  // UI refs
+  const searchInput = document.getElementById("searchInput");
+  const searchResults = document.getElementById("searchResults");
+  const listDiv = document.getElementById("list");
+  const addBtn = document.getElementById("addBtn");
+  const statusDiv = document.getElementById("status");
+
+  /* ---------------------------------------------------
+     AGGIUNTA LIBRO
+  --------------------------------------------------- */
+  addBtn.onclick = async () => {
+    const title = document.getElementById("title").value.trim();
+    const author = document.getElementById("author").value.trim();
+    const store = document.getElementById("store").value.trim();
+
+    if (!title || !author || !store) {
+      statusDiv.style.color = "red";
+      statusDiv.textContent = "Compila tutti i campi";
+      return;
     }
-};
 
-// AGGIUNGI
-document.getElementById("addBtn").onclick = async () => {
-    const title = document.getElementById("newTitle").value.trim();
-    const author = document.getElementById("newAuthor").value.trim();
-    const store = document.getElementById("newStore").value.trim();
+    statusDiv.style.color = "black";
+    statusDiv.textContent = "Invio...";
 
-    if (!title) return;
+    try {
+      await addDoc(booksCol, {
+        title, author, store, arrived: false, ts: Date.now()
+      });
 
-    const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ title, author, store })
+      statusDiv.style.color = "green";
+      statusDiv.textContent = "Libro aggiunto!";
+      document.getElementById("title").value = "";
+      document.getElementById("author").value = "";
+      document.getElementById("store").value = "";
+
+      setTimeout(()=> statusDiv.textContent = "", 2000);
+    } catch (e) {
+      statusDiv.style.color = "red";
+      statusDiv.textContent = "Errore";
+      console.error(e);
+    }
+  };
+
+  /* ---------------------------------------------------
+     LISTA LIVE
+  --------------------------------------------------- */
+  const q = query(booksCol, orderBy("ts", "desc"));
+  onSnapshot(q, snapshot => {
+    const docs = [];
+    snapshot.forEach(d => docs.push({ id: d.id, ...d.data() }));
+    renderList(docs);
+
+    if (searchInput.value.trim()) doSearch(searchInput.value.trim(), docs);
+  });
+
+  function renderList(items){
+    listDiv.innerHTML = "";
+    items.forEach(b => {
+      const div = document.createElement("div");
+      div.className = "book";
+      div.innerHTML = `<b>${escapeHtml(b.title)}</b>
+        <div>Autore: ${escapeHtml(b.author)} — Libreria: ${escapeHtml(b.store)}</div>
+        <div class="actions">
+          <button class="btn-danger" data-id="${b.id}">Elimina</button>
+        </div>`;
+      listDiv.appendChild(div);
+
+      div.querySelector("button").onclick = async () => {
+        if (!confirm("Eliminare questo libro?")) return;
+        await deleteDoc(doc(db, "books", b.id));
+      };
+    });
+  }
+
+  /* ---------------------------------------------------
+     RICERCA
+  --------------------------------------------------- */
+  searchInput.addEventListener("keydown", async (e) => {
+    if (e.key === "Enter") {
+      const qv = searchInput.value.trim();
+      if (!qv) { searchResults.innerHTML = ""; return; }
+
+      const snapshot = await getDocs(q);
+      const all = [];
+      snapshot.forEach(d => all.push({ id: d.id, ...d.data() }));
+
+      doSearch(qv, all);
+    }
+  });
+
+  function doSearch(qv, allItems){
+    const qlow = qv.toLowerCase();
+    const found = allItems.filter(b => b.title.toLowerCase().includes(qlow));
+
+    if (found.length === 0) {
+      searchResults.innerHTML = `<p style="color:red">NON CE L'HAI</p>`;
+      return;
+    }
+
+    let html = "<p style='color:green'>Trovati:</p>";
+    found.forEach(b => {
+      html += `<div class="book"><b>${escapeHtml(b.title)}</b>
+        <div>Autore: ${escapeHtml(b.author)} — Libreria: ${escapeHtml(b.store)}</div></div>`;
     });
 
-    const out = await res.json();
+    searchResults.innerHTML = html;
+  }
 
-    document.getElementById("addStatus").innerHTML =
-        `<p style="color:blue;">Libro aggiunto!</p>`;
-};
+  /* ---------------------------------------------------
+     SAFE TEXT
+  --------------------------------------------------- */
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, s=>({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;"
+    })[s]);
+  }
 
-// LISTA LIBRI
-async function loadBooks() {
-    const res = await fetch(API_URL);
-    const data = await res.json();
-    let html = "";
+  searchInput.focus();
 
-    data.forEach(b => {
-        html += `
-            <div class="book">
-                <b>${b.title}</b><br>
-                ${b.author}<br>
-                ${b.store}<br>
-                <button class="delete-btn" onclick="deleteBook('${b.id}')">Elimina</button>
-            </div>
-        `;
-    });
-
-    document.getElementById("bookList").innerHTML = html;
-}
-
-document.getElementById("refreshBtn").onclick = loadBooks;
-
-async function deleteBook(id) {
-    await fetch(API_URL + "?id=" + id, { method: "DELETE" });
-    loadBooks();
-}
-
-loadBooks();
 </script>
-
 </body>
 </html>
