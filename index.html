@@ -2,150 +2,128 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<title>Controllo Libri</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione Libri</title>
 <style>
-    body { font-family: Arial; padding: 20px; }
-    input, button { padding: 10px; margin: 5px 0; font-size: 16px; width: 100%; }
-    button { background: #007bff; color: white; border: none; border-radius: 8px; }
-    button:hover { opacity: 0.8; }
-    .book { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 8px; }
+body { font-family: Arial; padding: 20px; text-align: center; }
+input, button { width: 90%; padding: 10px; margin:5px 0; font-size: 18px; border-radius: 8px; border:1px solid #888; }
+#result { font-size: 18px; padding: 15px; text-align: left; white-space: pre-line; max-width: 500px; margin:auto;}
+.bookList { text-align: left; max-width: 500px; margin:auto; margin-top: 20px;}
+.bookItem { border-bottom: 1px solid #ccc; padding:5px;}
+button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 </style>
 </head>
 <body>
 
-<h1>📚 Controllo Libri</h1>
+<h2>Libri</h2>
 
-<h2>🔍 Cerca Libro</h2>
-<input type="text" id="searchInput" placeholder="Titolo o autore">
-<button onclick="searchBooks()">Cerca</button>
-<div id="searchResults"></div>
-
-<hr>
-
-<h2>➕ Aggiungi Libro</h2>
-<input type="text" id="titleInput" placeholder="Titolo" required>
-<input type="text" id="authorInput" placeholder="Autore" required>
-<input type="text" id="publisherInput" placeholder="Casa editrice (opzionale)">
-<button onclick="addBook()">Aggiungi</button>
-<p id="addMessage"></p>
+<h3>Cerca libro</h3>
+<input id="searchTitle" placeholder="Titolo">
+<button onclick="checkBook()">Cerca</button>
+<div id="result"></div>
 
 <hr>
 
-<h2>📖 Lista Completa</h2>
-<button onclick="loadBooks()">Mostra Tutti i Libri</button>
+<h3>Aggiungi libro</h3>
+<input id="newTitle" placeholder="Titolo">
+<input id="newAuthor" placeholder="Autore">
+<input id="newPublisher" placeholder="Casa editrice (opzionale)">
+<button onclick="addBook()">Aggiungi libro</button>
+
+<hr>
+
+<h3>Elenco libri</h3>
 <div id="bookList"></div>
 
-<!-- FIREBASE -->
+<!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBf-7Tg24C63gEVJEVkAyVqeci_WQ-BL9k",
   authDomain: "controlloordini-165ec.firebaseapp.com",
+  databaseURL: "https://controlloordini-165ec-default-rtdb.firebaseio.com",
   projectId: "controlloordini-165ec",
-  storageBucket: "controlloordini-165ec.firebasestorage.app",
+  storageBucket: "controlloordini-165ec.appspot.com",
   messagingSenderId: "825748031202",
-  appId: "1:825748031202:web:61cb4cca7511df87a280bb",
-  measurementId: "G-F5GR79DLMN"
+  appId: "1:825748031202:web:61cb4cca7511df87a280bb"
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getDatabase(app);
 
-window.books = [];
+const booksRef = ref(db, 'books');
 
-async function loadBooks() {
-    const querySnap = await getDocs(collection(db, "books"));
-    window.books = [];
-    document.getElementById("bookList").innerHTML = "";
+// Funzione per aggiungere libro
+function addBook(){
+  const title = document.getElementById("newTitle").value.trim();
+  const author = document.getElementById("newAuthor").value.trim();
+  const publisher = document.getElementById("newPublisher").value.trim();
 
-    querySnap.forEach(d => {
-        let b = d.data();
-        b.id = d.id;
-        window.books.push(b);
-    });
+  if(!title || !author){ alert("Titolo e Autore obbligatori!"); return; }
 
-    displayBooks(window.books);
+  push(booksRef, { title, author, publisher, arrived:false });
+  document.getElementById("newTitle").value="";
+  document.getElementById("newAuthor").value="";
+  document.getElementById("newPublisher").value="";
+  alert("Libro aggiunto!");
 }
 
-function displayBooks(list) {
-    const box = document.getElementById("bookList");
-    box.innerHTML = "";
-
-    list.forEach(b => {
-        box.innerHTML += `
-            <div class="book">
-                <b>${b.title}</b><br>
-                Autore: ${b.author}<br>
-                Casa editrice: ${b.publisher || "—"}<br>
-                <button onclick="deleteBook('${b.id}')">Elimina</button>
-            </div>
-        `;
-    });
+// Funzione per aggiornare lista libri
+function renderList(books){
+  const listDiv = document.getElementById("bookList");
+  listDiv.innerHTML = "";
+  for(let key in books){
+    const b = books[key];
+    const div = document.createElement("div");
+    div.className = "bookItem";
+    div.innerHTML = `
+      ${b.title} — ${b.author} ${b.publisher ? "- " + b.publisher : ""}
+      <input type="checkbox" ${b.arrived ? "checked" : ""} onchange="updateArrived('${key}', this.checked)"> Arrivato
+      <button class="small" onclick="deleteBook('${key}')">Elimina</button>
+    `;
+    listDiv.appendChild(div);
+  }
 }
 
-async function deleteBook(id) {
-    await deleteDoc(doc(db, "books", id));
-    loadBooks();
-}
-
-window.addBook = async function () {
-    const title = document.getElementById("titleInput").value.trim();
-    const author = document.getElementById("authorInput").value.trim();
-    const publisher = document.getElementById("publisherInput").value.trim();
-
-    if (!title || !author) {
-        document.getElementById("addMessage").innerHTML = "Titolo e autore obbligatori.";
-        return;
-    }
-
-    await addDoc(collection(db, "books"), {
-        title: title,
-        author: author,
-        publisher: publisher
-    });
-
-    document.getElementById("addMessage").innerHTML = "Libro aggiunto!";
-    document.getElementById("titleInput").value = "";
-    document.getElementById("authorInput").value = "";
-    document.getElementById("publisherInput").value = "";
-
-    loadBooks();
+// Funzione per aggiornare checkbox arrivato
+window.updateArrived = (key, val) => {
+  update(ref(db, 'books/' + key), { arrived: val });
 };
 
-window.searchBooks = function () {
-    const q = document.getElementById("searchInput").value.toLowerCase().trim();
-    if (!q) return;
-
-    const found = window.books.filter(b =>
-        b.title.toLowerCase().includes(q) ||
-        b.author.toLowerCase().includes(q)
-    );
-
-    let box = document.getElementById("searchResults");
-
-    if (found.length === 0) {
-        box.innerHTML = "<p>❌ Non ce l'hai</p>";
-        return;
-    }
-
-    let html = "<h3>📚 Risultati:</h3>";
-    found.forEach(b => {
-        html += `
-            <div class="book">
-                <b>${b.title}</b><br>
-                Autore: ${b.author}<br>
-                Casa editrice: ${b.publisher || "—"}
-            </div>
-        `;
-    });
-
-    box.innerHTML = html;
+// Funzione per eliminare libro
+window.deleteBook = (key) => {
+  if(confirm("Vuoi eliminare questo libro?")){
+    remove(ref(db, 'books/' + key));
+  }
 };
 
-// carica all'avvio
-loadBooks();
+// Funzione ricerca libri
+function checkBook(){
+  const search = document.getElementById("searchTitle").value.trim().toLowerCase();
+  const resultDiv = document.getElementById("result");
+  if(!search){ resultDiv.textContent=""; return; }
+  onValue(booksRef, snapshot => {
+    const data = snapshot.val() || {};
+    const found = Object.values(data).filter(b => b.title.toLowerCase().includes(search));
+    if(found.length===0){
+      resultDiv.textContent="Nessun libro trovato ❌";
+    } else {
+      let out="Libri trovati ✅\n\n";
+      found.forEach(b => {
+        out += `Titolo: ${b.title}\nAutore: ${b.author}\n${b.publisher ? "Casa editrice: "+b.publisher+"\n":""}Arrivato: ${b.arrived ? "✅":"❌"}\n\n`;
+      });
+      resultDiv.textContent = out;
+    }
+  }, {onlyOnce:true});
+}
+
+// Aggiornamento in tempo reale della lista completa
+onValue(booksRef, snapshot => {
+  renderList(snapshot.val() || {});
+});
+
 </script>
 
 </body>
