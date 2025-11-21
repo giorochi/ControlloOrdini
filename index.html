@@ -36,11 +36,9 @@ button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 <div id="bookList"></div>
 
 <script type="module">
-// Firebase SDK
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
 import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
 
-// Config Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBf-7Tg24C63gEVJEVkAyVqeci_WQ-BL9k",
   authDomain: "controlloordini-165ec.firebaseapp.com",
@@ -51,12 +49,11 @@ const firebaseConfig = {
   appId: "1:825748031202:web:61cb4cca7511df87a280bb"
 };
 
-// Inizializza Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const booksRef = ref(db, 'books');
 
-// Funzione aggiungi libro
+// FUNZIONI
 function addBook() {
   const t = document.getElementById("newTitle").value.trim();
   const a = document.getElementById("newAuthor").value.trim();
@@ -69,7 +66,6 @@ function addBook() {
   alert("Libro aggiunto!");
 }
 
-// Funzione ricerca libri
 function checkBook() {
   const search = document.getElementById("searchTitle").value.trim().toLowerCase();
   const resultDiv = document.getElementById("result");
@@ -89,7 +85,7 @@ function checkBook() {
   }, {onlyOnce:true});
 }
 
-// Aggiorna checkbox Arrivato
+// Aggiorna Arrivato
 function toggleArrived(id, val) {
   update(ref(db, 'books/' + id), { arrived: val });
 }
@@ -101,7 +97,7 @@ function deleteBook(id){
   }
 }
 
-// Render lista completa in tempo reale
+// Render lista
 function renderList(books){
   const listDiv = document.getElementById("bookList");
   listDiv.innerHTML = "";
@@ -109,11 +105,18 @@ function renderList(books){
     const b = books[id];
     const div = document.createElement("div");
     div.className="bookItem";
-    div.innerHTML = `
-      ${b.title} — ${b.author} ${b.publisher ? "- "+b.publisher : ""}
-      <input type="checkbox" ${b.arrived ? "checked" : ""} onchange="toggleArrived('${id}', this.checked)"> Arrivato
-      <button class="small" onclick="deleteBook('${id}')">Elimina</button>
-    `;
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = b.arrived;
+    checkbox.addEventListener("change", ()=>toggleArrived(id, checkbox.checked));
+    const delBtn = document.createElement("button");
+    delBtn.className="small";
+    delBtn.textContent = "Elimina";
+    delBtn.addEventListener("click", ()=>deleteBook(id));
+    div.textContent = `${b.title} — ${b.author} ${b.publisher ? "- "+b.publisher : ""} `;
+    div.appendChild(checkbox);
+    div.appendChild(document.createTextNode(" Arrivato "));
+    div.appendChild(delBtn);
     listDiv.appendChild(div);
   }
 }
@@ -123,7 +126,7 @@ onValue(booksRef, snapshot => {
   renderList(snapshot.val() || {});
 });
 
-// EventListener per pulsanti
+// EventListener pulsanti
 document.getElementById("addBtn").addEventListener("click", addBook);
 document.getElementById("searchBtn").addEventListener("click", checkBook);
 
