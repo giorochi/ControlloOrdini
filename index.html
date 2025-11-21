@@ -142,36 +142,45 @@
   /* ---------------------------------------------------
      RICERCA
   --------------------------------------------------- */
-  searchInput.addEventListener("keydown", async (e) => {
-    if (e.key === "Enter") {
-      const qv = searchInput.value.trim();
-      if (!qv) { searchResults.innerHTML = ""; return; }
+  <h2>🔍 Cerca Libro</h2>
+<input type="text" id="searchInput" placeholder="Titolo o autore">
+<button onclick="searchBooks()">Cerca</button>
 
-      const snapshot = await getDocs(q);
-      const all = [];
-      snapshot.forEach(d => all.push({ id: d.id, ...d.data() }));
+<div id="searchResults"></div>
 
-      doSearch(qv, all);
+<script>
+function searchBooks() {
+    let q = document.getElementById("searchInput").value.toLowerCase().trim();
+    if (!q) {
+        document.getElementById("searchResults").innerHTML = "<p>Scrivi qualcosa…</p>";
+        return;
     }
-  });
 
-  function doSearch(qv, allItems){
-    const qlow = qv.toLowerCase();
-    const found = allItems.filter(b => b.title.toLowerCase().includes(qlow));
+    let found = window.books.filter(b =>
+        b.title.toLowerCase().includes(q) ||
+        b.author.toLowerCase().includes(q)
+    );
 
     if (found.length === 0) {
-      searchResults.innerHTML = `<p style="color:red">NON CE L'HAI</p>`;
-      return;
+        document.getElementById("searchResults").innerHTML = "<p>❌ Non ce l'hai</p>";
+        return;
     }
 
-    let html = "<p style='color:green'>Trovati:</p>";
+    let html = "<h3>📚 Trovato:</h3>";
     found.forEach(b => {
-      html += `<div class="book"><b>${escapeHtml(b.title)}</b>
-        <div>Autore: ${escapeHtml(b.author)} — Libreria: ${escapeHtml(b.store)}</div></div>`;
+        html += `
+            <div style='border:1px solid #ccc; padding:10px; margin:5px; border-radius:8px'>
+                <b>${b.title}</b><br>
+                Autore: ${b.author}<br>
+                Libreria: ${b.store}
+            </div>
+        `;
     });
 
-    searchResults.innerHTML = html;
-  }
+    document.getElementById("searchResults").innerHTML = html;
+}
+</script>
+
 
   /* ---------------------------------------------------
      SAFE TEXT
@@ -191,3 +200,4 @@
 </script>
 </body>
 </html>
+
