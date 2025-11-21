@@ -3,82 +3,110 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Libri in Cloud</title>
+<title>Libreria Cloud</title>
 <style>
-body { font-family: Arial; padding: 20px; text-align: center; }
-input, button { width: 90%; padding: 10px; margin:5px 0; font-size: 18px; border-radius: 8px; border:1px solid #888; }
-#result { font-size: 18px; padding: 15px; text-align: left; white-space: pre-line; max-width: 500px; margin:auto;}
+body { font-family: Arial; padding: 20px; text-align:center; }
+input, button { width:90%; padding:10px; margin:5px; font-size:18px; border-radius:8px; border:1px solid #888; }
+.book { padding:10px; border-bottom: 1px solid #aaa; text-align:left; max-width:500px; margin:auto; }
 </style>
 </head>
 <body>
 
-<h2>Libri Condivisi</h2>
+<h2>Gestione Libri Cloud</h2>
 
 <h3>Cerca libro</h3>
-<input id="searchTitle" placeholder="Titolo">
-<button onclick="checkBook()">Cerca</button>
-<div id="result"></div>
+<input id="search" placeholder="Titolo">
+<button onclick="searchBook()">Cerca</button>
+<div id="results"></div>
 
 <hr>
 
 <h3>Aggiungi libro</h3>
-<input id="newTitle" placeholder="Titolo">
-<input id="newAuthor" placeholder="Autore">
-<input id="newLibrary" placeholder="Libreria">
+<input id="t" placeholder="Titolo">
+<input id="a" placeholder="Autore">
+<input id="l" placeholder="Libreria">
 <button onclick="addBook()">Aggiungi</button>
 
+<hr>
+<h3>Elenco libri</h3>
+<div id="list"></div>
+
 <script>
-const endpoint = "https://script.google.com/macros/s/AKfycbxMpNVkxei4tszJ93KaXiEbMyRbA9tsbzC9CCuoR04_4qOm_V-F1XR21sWw56nt4cqLPQ/exec";
+const API = "/api";
 
-// Lista libri dal cloud
-let books = [];
-
-// Carica lista dal cloud
-async function loadBooks(){
-  try{
-    const res = await fetch(endpoint);
-    books = await res.json();
-  } catch(e){
-    document.getElementById("result").textContent = "Errore caricamento lista";
-  }
+async function loadList() {
+  const res = await fetch(API + "/list");
+  const data = await res.json();
+  renderList(data);
+  window.booksCache = data;
 }
 
-// Controlla libro
-function checkBook(){
-  const t = document.getElementById("searchTitle").value.toLowerCase().trim();
-  const resultBox = document.getElementById("result");
-  if(!t){ resultBox.textContent=""; return; }
-  const found = books.filter(b => b.title.toLowerCase().includes(t));
-  if(found.length === 0){
-    resultBox.textContent = "Nessun libro trovato ❌";
-  } else {
-    let out = "Libri trovati ✅\n\n";
-    found.forEach(b => out += `Titolo: ${b.title}\nAutore: ${b.author}\nLibreria: ${b.library}\n\n`);
-    resultBox.textContent = out;
-  }
-}
-
-// Aggiungi libro
-async function addBook(){
-  const t = document.getElementById("newTitle").value.trim();
-  const a = document.getElementById("newAuthor").value.trim();
-  const l = document.getElementById("newLibrary").value.trim();
-  if(!t||!a||!l){ alert("Compila tutti i campi"); return; }
-
-  await fetch(endpoint, {
-    method: "POST",
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({title:t, author:a, library:l})
+function renderList(books) {
+  const div = document.getElementById("list");
+  div.innerHTML = "";
+  books.forEach(b => {
+    div.innerHTML += `
+      <div class="book">
+        <b>${b.title}</b><br>
+        Autore: ${b.author}<br>
+        Libreria: ${b.library}<br>
+        Arrivato: ${b.arrived ? "✔️" : "❌"}
+      </div>
+    `;
   });
-  document.getElementById("newTitle").value="";
-  document.getElementById("newAuthor").value="";
-  document.getElementById("newLibrary").value="";
-  await loadBooks();
-  alert("Libro aggiunto e lista aggiornata!");
 }
 
-// Aggiorna lista appena apre pagina
-loadBooks();
+function searchBook() {
+  const txt = document.getElementById("search").value.toLowerCase().trim();
+  const out = document.getElementById("results");
+
+  if (!txt) {
+    out.innerHTML = "";
+    return;
+  }
+
+  const found = window.booksCache.filter(b =>
+    b.title.toLowerCase().includes(txt)
+  );
+
+  if (found.length === 0) {
+    out.innerHTML = "<p>Nessun libro trovato ❌</p>";
+    return;
+  }
+
+  out.innerHTML = found.map(b => `
+    <div class="book">
+      <b>${b.title}</b><br>
+      Autore: ${b.author}<br>
+      Libreria: ${b.library}<br>
+      Arrivato: ${b.arrived ? "✔️" : "❌"}
+    </div>
+  `).join("");
+}
+
+async function addBook() {
+  const title = document.getElementById("t").value.trim();
+  const author = document.getElementById("a").value.trim();
+  const library = document.getElementById("l").value.trim();
+
+  if (!title || !author || !library) {
+    alert("Compila tutto, per l'amor del cielo");
+    return;
+  }
+
+  await fetch(API + "/add", {
+    method: "POST",
+    body: JSON.stringify({ title, author, library })
+  });
+
+  document.getElementById("t").value = "";
+  document.getElementById("a").value = "";
+  document.getElementById("l").value = "";
+
+  loadList();
+}
+loadList();
 </script>
+
 </body>
 </html>
