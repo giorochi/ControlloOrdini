@@ -35,52 +35,74 @@ button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 <h3>Elenco libri</h3>
 <div id="bookList"></div>
 
-<script>
-let books = JSON.parse(localStorage.getItem('books') || '{}');
+<script type="module">
+// Firebase SDK
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+import { getDatabase, ref, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
 
-function saveBooks(){ localStorage.setItem('books', JSON.stringify(books)); }
+// Config Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyBf-7Tg24C63gEVJEVkAyVqeci_WQ-BL9k",
+  authDomain: "controlloordini-165ec.firebaseapp.com",
+  databaseURL: "https://controlloordini-165ec-default-rtdb.firebaseio.com",
+  projectId: "controlloordini-165ec",
+  storageBucket: "controlloordini-165ec.appspot.com",
+  messagingSenderId: "825748031202",
+  appId: "1:825748031202:web:61cb4cca7511df87a280bb"
+};
 
-function addBook() {
+// Inizializza Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const booksRef = ref(db, 'books');
+
+// Funzione aggiungi libro
+window.addBook = () => {
   const t = document.getElementById("newTitle").value.trim();
   const a = document.getElementById("newAuthor").value.trim();
   const p = document.getElementById("newPublisher").value.trim();
-  if(!t||!a){ alert("Titolo e Autore obbligatori!"); return; }
-  const id = Date.now().toString();
-  books[id] = { title: t, author: a, publisher: p, arrived:false };
-  saveBooks();
-  renderList();
+  if(!t || !a){ alert("Titolo e Autore obbligatori!"); return; }
+  push(booksRef, { title: t, author: a, publisher: p, arrived:false });
   document.getElementById("newTitle").value="";
   document.getElementById("newAuthor").value="";
   document.getElementById("newPublisher").value="";
   alert("Libro aggiunto!");
-}
+};
 
-function checkBook() {
+// Funzione ricerca libri
+window.checkBook = () => {
   const search = document.getElementById("searchTitle").value.trim().toLowerCase();
-  const result = document.getElementById("result");
-  if(!search){ result.textContent=""; return; }
-  const found = Object.values(books).filter(b => b.title.toLowerCase().includes(search));
-  if(found.length===0){ result.textContent="Nessun libro trovato ❌"; return; }
-  let out = "Libri trovati ✅\n\n";
-  found.forEach(b => out+=`Titolo: ${b.title}\nAutore: ${b.author}\n${b.publisher ? "Casa editrice: "+b.publisher+"\n":""}Arrivato: ${b.arrived ? "✅":"❌"}\n\n`);
-  result.textContent = out;
-}
+  const resultDiv = document.getElementById("result");
+  if(!search){ resultDiv.textContent=""; return; }
+  onValue(booksRef, snapshot => {
+    const data = snapshot.val() || {};
+    const found = Object.values(data).filter(b => b.title.toLowerCase().includes(search));
+    if(found.length === 0){
+      resultDiv.textContent = "Nessun libro trovato ❌";
+    } else {
+      let out = "Libri trovati ✅\n\n";
+      found.forEach(b => {
+        out += `Titolo: ${b.title}\nAutore: ${b.author}\n${b.publisher ? "Casa editrice: "+b.publisher+"\n":""}Arrivato: ${b.arrived ? "✅":"❌"}\n\n`;
+      });
+      resultDiv.textContent = out;
+    }
+  }, {onlyOnce:true});
+};
 
-function toggleArrived(id){
-  books[id].arrived = !books[id].arrived;
-  saveBooks();
-  renderList();
-}
+// Aggiorna checkbox Arrivato
+window.toggleArrived = (id, val) => {
+  update(ref(db, 'books/' + id), { arrived: val });
+};
 
-function deleteBook(id){
+// Elimina libro
+window.deleteBook = (id) => {
   if(confirm("Vuoi eliminare questo libro?")){
-    delete books[id];
-    saveBooks();
-    renderList();
+    remove(ref(db, 'books/' + id));
   }
-}
+};
 
-function renderList(){
+// Render lista completa in tempo reale
+function renderList(books){
   const listDiv = document.getElementById("bookList");
   listDiv.innerHTML = "";
   for(let id in books){
@@ -88,16 +110,19 @@ function renderList(){
     const div = document.createElement("div");
     div.className="bookItem";
     div.innerHTML = `
-      ${b.title} — ${b.author} ${b.publisher ? "- " + b.publisher : ""}
-      <input type="checkbox" ${b.arrived ? "checked" : ""} onclick="toggleArrived('${id}')"> Arrivato
+      ${b.title} — ${b.author} ${b.publisher ? "- "+b.publisher : ""}
+      <input type="checkbox" ${b.arrived ? "checked" : ""} onchange="toggleArrived('${id}', this.checked)"> Arrivato
       <button class="small" onclick="deleteBook('${id}')">Elimina</button>
     `;
     listDiv.appendChild(div);
   }
 }
 
-renderList();
-</script>
+// Aggiornamento automatico lista
+onValue(booksRef, snapshot => {
+  renderList(snapshot.val() || {});
+});
 
+</script>
 </body>
 </html>
