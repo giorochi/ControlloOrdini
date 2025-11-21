@@ -19,7 +19,7 @@ button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 
 <h3>Cerca libro</h3>
 <input id="searchTitle" placeholder="Titolo">
-<button onclick="checkBook()">Cerca</button>
+<button id="searchBtn">Cerca</button>
 <div id="result"></div>
 
 <hr>
@@ -28,7 +28,7 @@ button.small { padding: 3px 8px; font-size:14px; margin-left:5px;}
 <input id="newTitle" placeholder="Titolo">
 <input id="newAuthor" placeholder="Autore">
 <input id="newPublisher" placeholder="Casa editrice (opzionale)">
-<button onclick="addBook()">Aggiungi libro</button>
+<button id="addBtn">Aggiungi libro</button>
 
 <hr>
 
@@ -57,7 +57,7 @@ const db = getDatabase(app);
 const booksRef = ref(db, 'books');
 
 // Funzione aggiungi libro
-window.addBook = () => {
+function addBook() {
   const t = document.getElementById("newTitle").value.trim();
   const a = document.getElementById("newAuthor").value.trim();
   const p = document.getElementById("newPublisher").value.trim();
@@ -67,10 +67,10 @@ window.addBook = () => {
   document.getElementById("newAuthor").value="";
   document.getElementById("newPublisher").value="";
   alert("Libro aggiunto!");
-};
+}
 
 // Funzione ricerca libri
-window.checkBook = () => {
+function checkBook() {
   const search = document.getElementById("searchTitle").value.trim().toLowerCase();
   const resultDiv = document.getElementById("result");
   if(!search){ resultDiv.textContent=""; return; }
@@ -87,19 +87,19 @@ window.checkBook = () => {
       resultDiv.textContent = out;
     }
   }, {onlyOnce:true});
-};
+}
 
 // Aggiorna checkbox Arrivato
-window.toggleArrived = (id, val) => {
+function toggleArrived(id, val) {
   update(ref(db, 'books/' + id), { arrived: val });
-};
+}
 
 // Elimina libro
-window.deleteBook = (id) => {
+function deleteBook(id){
   if(confirm("Vuoi eliminare questo libro?")){
     remove(ref(db, 'books/' + id));
   }
-};
+}
 
 // Render lista completa in tempo reale
 function renderList(books){
@@ -122,6 +122,10 @@ function renderList(books){
 onValue(booksRef, snapshot => {
   renderList(snapshot.val() || {});
 });
+
+// EventListener per pulsanti
+document.getElementById("addBtn").addEventListener("click", addBook);
+document.getElementById("searchBtn").addEventListener("click", checkBook);
 
 </script>
 </body>
