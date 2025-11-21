@@ -1,203 +1,152 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Controllo Ordini Libri</title>
+<meta charset="UTF-8">
+<title>Controllo Libri</title>
 <style>
-  body{font-family:Arial,system-ui;padding:18px;max-width:720px;margin:auto}
-  input,button{width:100%;padding:10px;margin:6px 0;border-radius:8px;border:1px solid #888;font-size:16px}
-  .row{display:flex;gap:8px}
-  .small{width:30%}
-  .book{border:1px solid #ddd;padding:10px;border-radius:8px;margin:8px 0}
-  .actions{display:flex;gap:8px;margin-top:8px}
-  .btn-danger{background:#c0392b;color:#fff;border:none;padding:8px;border-radius:6px;cursor:pointer}
-  .badge{display:inline-block;padding:4px 8px;border-radius:6px;background:#eee;margin-left:6px}
-  #status{margin:6px 0;color:green}
+    body { font-family: Arial; padding: 20px; }
+    input, button { padding: 10px; margin: 5px 0; font-size: 16px; width: 100%; }
+    button { background: #007bff; color: white; border: none; border-radius: 8px; }
+    button:hover { opacity: 0.8; }
+    .book { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 8px; }
 </style>
 </head>
 <body>
-<h2>Controllo Ordini — Cerca / Aggiungi / Elimina</h2>
 
-<!-- Ricerca -->
-<input id="searchInput" placeholder="Cerca titolo e premi Invio" />
-<div id="searchResults"></div>
+<h1>📚 Controllo Libri</h1>
 
-<hr>
-
-<!-- Aggiungi -->
-<input id="title" placeholder="Titolo" />
-<input id="author" placeholder="Autore" />
-<input id="store" placeholder="Libreria / Dove comprato" />
-<button id="addBtn">Aggiungi libro</button>
-<div id="status"></div>
-
-<hr>
-<h3>Elenco completo</h3>
-<div id="list"></div>
-
-<script type="module">
-
-  /* ---------------------------------------------------
-     CONFIG FIREBASE (IL TUO)
-  --------------------------------------------------- */
-  const firebaseConfig = {
-    apiKey: "AIzaSyBf-7Tg24C63gEVJEVkAyVqeci_WQ-BL9k",
-    authDomain: "controlloordini-165ec.firebaseapp.com",
-    projectId: "controlloordini-165ec",
-    storageBucket: "controlloordini-165ec.firebasestorage.app",
-    messagingSenderId: "825748031202",
-    appId: "1:825748031202:web:61cb4cca7511df87a280bb",
-    measurementId: "G-F5GR79DLMN"
-  };
-
-  /* ---------------------------------------------------
-     SDK FIREBASE IMPORT
-  --------------------------------------------------- */
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-  import {
-    getFirestore, collection, addDoc, deleteDoc, doc,
-    onSnapshot, query, orderBy, getDocs
-  } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
-
-  // Init Firebase + Firestore
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const booksCol = collection(db, "books");
-
-  // UI refs
-  const searchInput = document.getElementById("searchInput");
-  const searchResults = document.getElementById("searchResults");
-  const listDiv = document.getElementById("list");
-  const addBtn = document.getElementById("addBtn");
-  const statusDiv = document.getElementById("status");
-
-  /* ---------------------------------------------------
-     AGGIUNTA LIBRO
-  --------------------------------------------------- */
-  addBtn.onclick = async () => {
-    const title = document.getElementById("title").value.trim();
-    const author = document.getElementById("author").value.trim();
-    const store = document.getElementById("store").value.trim();
-
-    if (!title || !author || !store) {
-      statusDiv.style.color = "red";
-      statusDiv.textContent = "Compila tutti i campi";
-      return;
-    }
-
-    statusDiv.style.color = "black";
-    statusDiv.textContent = "Invio...";
-
-    try {
-      await addDoc(booksCol, {
-        title, author, store, arrived: false, ts: Date.now()
-      });
-
-      statusDiv.style.color = "green";
-      statusDiv.textContent = "Libro aggiunto!";
-      document.getElementById("title").value = "";
-      document.getElementById("author").value = "";
-      document.getElementById("store").value = "";
-
-      setTimeout(()=> statusDiv.textContent = "", 2000);
-    } catch (e) {
-      statusDiv.style.color = "red";
-      statusDiv.textContent = "Errore";
-      console.error(e);
-    }
-  };
-
-  /* ---------------------------------------------------
-     LISTA LIVE
-  --------------------------------------------------- */
-  const q = query(booksCol, orderBy("ts", "desc"));
-  onSnapshot(q, snapshot => {
-    const docs = [];
-    snapshot.forEach(d => docs.push({ id: d.id, ...d.data() }));
-    renderList(docs);
-
-    if (searchInput.value.trim()) doSearch(searchInput.value.trim(), docs);
-  });
-
-  function renderList(items){
-    listDiv.innerHTML = "";
-    items.forEach(b => {
-      const div = document.createElement("div");
-      div.className = "book";
-      div.innerHTML = `<b>${escapeHtml(b.title)}</b>
-        <div>Autore: ${escapeHtml(b.author)} — Libreria: ${escapeHtml(b.store)}</div>
-        <div class="actions">
-          <button class="btn-danger" data-id="${b.id}">Elimina</button>
-        </div>`;
-      listDiv.appendChild(div);
-
-      div.querySelector("button").onclick = async () => {
-        if (!confirm("Eliminare questo libro?")) return;
-        await deleteDoc(doc(db, "books", b.id));
-      };
-    });
-  }
-
-  /* ---------------------------------------------------
-     RICERCA
-  --------------------------------------------------- */
-  <h2>🔍 Cerca Libro</h2>
+<h2>🔍 Cerca Libro</h2>
 <input type="text" id="searchInput" placeholder="Titolo o autore">
 <button onclick="searchBooks()">Cerca</button>
-
 <div id="searchResults"></div>
 
-<script>
-function searchBooks() {
-    let q = document.getElementById("searchInput").value.toLowerCase().trim();
-    if (!q) {
-        document.getElementById("searchResults").innerHTML = "<p>Scrivi qualcosa…</p>";
+<hr>
+
+<h2>➕ Aggiungi Libro</h2>
+<input type="text" id="titleInput" placeholder="Titolo" required>
+<input type="text" id="authorInput" placeholder="Autore" required>
+<input type="text" id="publisherInput" placeholder="Casa editrice (opzionale)">
+<button onclick="addBook()">Aggiungi</button>
+<p id="addMessage"></p>
+
+<hr>
+
+<h2>📖 Lista Completa</h2>
+<button onclick="loadBooks()">Mostra Tutti i Libri</button>
+<div id="bookList"></div>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBf-7Tg24C63gEVJEVkAyVqeci_WQ-BL9k",
+  authDomain: "controlloordini-165ec.firebaseapp.com",
+  projectId: "controlloordini-165ec",
+  storageBucket: "controlloordini-165ec.firebasestorage.app",
+  messagingSenderId: "825748031202",
+  appId: "1:825748031202:web:61cb4cca7511df87a280bb",
+  measurementId: "G-F5GR79DLMN"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.books = [];
+
+async function loadBooks() {
+    const querySnap = await getDocs(collection(db, "books"));
+    window.books = [];
+    document.getElementById("bookList").innerHTML = "";
+
+    querySnap.forEach(d => {
+        let b = d.data();
+        b.id = d.id;
+        window.books.push(b);
+    });
+
+    displayBooks(window.books);
+}
+
+function displayBooks(list) {
+    const box = document.getElementById("bookList");
+    box.innerHTML = "";
+
+    list.forEach(b => {
+        box.innerHTML += `
+            <div class="book">
+                <b>${b.title}</b><br>
+                Autore: ${b.author}<br>
+                Casa editrice: ${b.publisher || "—"}<br>
+                <button onclick="deleteBook('${b.id}')">Elimina</button>
+            </div>
+        `;
+    });
+}
+
+async function deleteBook(id) {
+    await deleteDoc(doc(db, "books", id));
+    loadBooks();
+}
+
+window.addBook = async function () {
+    const title = document.getElementById("titleInput").value.trim();
+    const author = document.getElementById("authorInput").value.trim();
+    const publisher = document.getElementById("publisherInput").value.trim();
+
+    if (!title || !author) {
+        document.getElementById("addMessage").innerHTML = "Titolo e autore obbligatori.";
         return;
     }
 
-    let found = window.books.filter(b =>
+    await addDoc(collection(db, "books"), {
+        title: title,
+        author: author,
+        publisher: publisher
+    });
+
+    document.getElementById("addMessage").innerHTML = "Libro aggiunto!";
+    document.getElementById("titleInput").value = "";
+    document.getElementById("authorInput").value = "";
+    document.getElementById("publisherInput").value = "";
+
+    loadBooks();
+};
+
+window.searchBooks = function () {
+    const q = document.getElementById("searchInput").value.toLowerCase().trim();
+    if (!q) return;
+
+    const found = window.books.filter(b =>
         b.title.toLowerCase().includes(q) ||
         b.author.toLowerCase().includes(q)
     );
 
+    let box = document.getElementById("searchResults");
+
     if (found.length === 0) {
-        document.getElementById("searchResults").innerHTML = "<p>❌ Non ce l'hai</p>";
+        box.innerHTML = "<p>❌ Non ce l'hai</p>";
         return;
     }
 
-    let html = "<h3>📚 Trovato:</h3>";
+    let html = "<h3>📚 Risultati:</h3>";
     found.forEach(b => {
         html += `
-            <div style='border:1px solid #ccc; padding:10px; margin:5px; border-radius:8px'>
+            <div class="book">
                 <b>${b.title}</b><br>
                 Autore: ${b.author}<br>
-                Libreria: ${b.store}
+                Casa editrice: ${b.publisher || "—"}
             </div>
         `;
     });
 
-    document.getElementById("searchResults").innerHTML = html;
-}
+    box.innerHTML = html;
+};
+
+// carica all'avvio
+loadBooks();
 </script>
 
-
-  /* ---------------------------------------------------
-     SAFE TEXT
-  --------------------------------------------------- */
-  function escapeHtml(str){
-    return String(str).replace(/[&<>"']/g, s=>({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "\"": "&quot;",
-      "'": "&#39;"
-    })[s]);
-  }
-
-  searchInput.focus();
-
-</script>
 </body>
 </html>
-
